@@ -3,7 +3,7 @@
 
   inputs = {
     # nixpkgs.url = "github:LunNova/nixpkgs/lunnova/rocm-6.4.x";
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
     chaotic.url = "github:chaotic-cx/nyx/nyxpkgs-unstable";
 
     flake-utils.url = "github:numtide/flake-utils";
