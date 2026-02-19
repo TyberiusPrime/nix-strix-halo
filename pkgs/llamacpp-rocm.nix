@@ -91,6 +91,7 @@ pkgs.stdenv.mkDerivation {
     lld
     llvmPackages.bintools
     autoPatchelfHook
+    makeWrapper
   ];
 
   buildInputs = with pkgs; [
@@ -141,25 +142,23 @@ pkgs.stdenv.mkDerivation {
     export ROCBLAS_USE_HIPBLASLT=1
   '';
 
-  postInstall = ''
+  postInstall = let
+    wrapArgs = builtins.concatStringsSep " " ([
+      ''--prefix LD_LIBRARY_PATH : "${rocm}/lib"''
+    ] ++ pkgs.lib.optionals enableRocwmma [
+      "--set-default ROCBLAS_USE_HIPBLASLT 1"
+    ]);
+  in ''
     # Install rpc-server which isn't installed by default
     cp bin/rpc-server $out/bin/
     # Fix RPATH for rpc-server
     patchelf --set-rpath "$out/lib:${rocm}/lib:${pkgs.stdenv.cc.cc.lib}/lib" $out/bin/rpc-server
-  '' + pkgs.lib.optionalString enableRocwmma ''
-    # Wrap all binaries to set ROCBLAS_USE_HIPBLASLT=1 for ROCWMMA builds
+
+    # Wrap all binaries with LD_LIBRARY_PATH so dlopen stubs from
+    # TheRock's implib-gen can find ROCm libraries at runtime
     for bin in $out/bin/*; do
       if [ -f "$bin" ] && [ -x "$bin" ]; then
-        mv "$bin" "$bin.unwrapped"
-        cat > "$bin" << EOF
-    #!/bin/bash
-    # Set ROCBLAS_USE_HIPBLASLT=1 unless explicitly set to 0
-    if [ "\''${ROCBLAS_USE_HIPBLASLT}" != "0" ]; then
-      export ROCBLAS_USE_HIPBLASLT=1
-    fi
-    exec "$bin.unwrapped" "\$@"
-    EOF
-        chmod +x "$bin"
+        wrapProgram "$bin" ${wrapArgs}
       fi
     done
   '';
